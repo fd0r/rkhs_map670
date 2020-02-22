@@ -19,7 +19,7 @@ If you need to install some of them, you can simply execute ```pip install -r re
 
 ## Data
 
-- ``MillionSongs``` can be found [here](https://archive.ics.uci.edu/ml/datasets/yearpredictionmsd) ;
+- ```MillionSongs``` can be found [here](https://archive.ics.uci.edu/ml/datasets/yearpredictionmsd) ;
 - ```CTSlices``` can be found [here](https://archive.ics.uci.edu/ml/datasets/Relative+location+of+CT+slices+on+axial+axis) ;
 - ```adult``` and ```census-house``` datasets have been downloaded from
 [this website](http://www.cs.toronto.edu/~delve/data/datasets.html).
