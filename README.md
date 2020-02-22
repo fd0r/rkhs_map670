@@ -1,5 +1,5 @@
 # New algorithms for large scale learning with kernels
-RKHS project for the course "Generalisation Properties" by Aymeric Dieuleveut
+RKHS project for the course "Generalization Properties" by Aymeric Dieuleveut
 
 _Authors: Corentin Ambroise, Luis Montero and Margaux Zaffran_
 
