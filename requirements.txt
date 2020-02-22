@@ -1,7 +1,7 @@
-numpy
-scipy
 pandas
+numpy
 scikit-learn>=0.20
+matplotlib
 jupyter
 googledrivedownloader
 os

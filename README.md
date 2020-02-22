@@ -23,8 +23,8 @@ This repository requires python, but also needs some libraries:
 
 - pandas
 - numpy
-- scipy
 - scikit-learn
+- matplotlib
 - jupyter
 - googledrivedownloader
 - os
