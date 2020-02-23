@@ -4,3 +4,5 @@
 *.pyc
 
 rkhs/__pycache__/
+
+data/
