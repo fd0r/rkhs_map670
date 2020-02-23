@@ -2,3 +2,5 @@
 .ipynb_checkpoints/
 
 *.pyc
+
+rkhs/__pycache__/
