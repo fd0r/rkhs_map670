@@ -7,15 +7,13 @@ _Authors: Corentin Ambroise, Luis Montero and Margaux Zaffran_
 
 ## Data
 
-- ```MillionSongs``` can be found [here](https://archive.ics.uci.edu/ml/datasets/yearpredictionmsd) ;
-- ```CTSlices``` can be found [here](https://archive.ics.uci.edu/ml/datasets/Relative+location+of+CT+slices+on+axial+axis) ;
-- ```adult``` and ```census-house``` datasets have been downloaded from
-[this website](http://www.cs.toronto.edu/~delve/data/datasets.html).
+- ```CTSlices``` can be found [here](https://archive.ics.uci.edu/ml/datasets/Relative+location+of+CT+slices+on+axial+axis).
 
 ## References
 
 - "Random Features for Large-Scale Kernel Machines", A. Rahimi, B. Recht
 - "Generalization properties of learning with random features", A. Rudi, L. Rosasco
+- "Less is More:  Nystrom Computational Regularization", R. Camoriano Rosasco
 
 ## Set up
 
