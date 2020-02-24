@@ -3,6 +3,7 @@ import logging
 import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.metrics.pairwise import pairwise_kernels
+from sklearn.linear_model import SGDRegressor, SGDClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -51,11 +52,51 @@ class PlainNystromRegressor(BaseEstimator):
 # TODO: Implement GD and SGD learning
 
 class GDPlainNystromRegressor:
-    raise NotImplementedError
+    def __init__(self):
+        raise NotImplementedError
+
+
+class GDPlainNystromClassifier:
+    def __init__(self):
+        raise NotImplementedError
 
 
 class SGDPlainNystromRegressor:
-    raise NotImplementedError
+    def __init__(self, kernel: str = 'rbf', m: int = 100, lambda_reg: int = 0,
+                 **kwargs):
+        self.projector = PlainNystrom(kernel=kernel, m=m)
+        self.lambda_reg = lambda_reg
+        self.coeffs = None
+        self.regressor = SGDRegressor(fit_intercept=False, **kwargs)
+        self.kwargs = kwargs
+
+    def fit(self, X: np.ndarray, y: np.array = None, **kwargs):
+        k_nm = self.projector.fit_transform(X=X, y=y, **kwargs)
+        self.regressor.fit(k_nm, y)
+        return self
+
+    def predict(self, X):
+        projection = self.projector.transform(X=X)
+        return self.regressor.predict(projection)
+
+
+class SGDPlainNystromClassifier:
+    def __init__(self, kernel: str = 'rbf', m: int = 100, lambda_reg: int = 0,
+                 **kwargs):
+        self.projector = PlainNystrom(kernel=kernel, m=m)
+        self.lambda_reg = lambda_reg
+        self.coeffs = None
+        self.classifier = SGDClassifier(fit_intercept=False, **kwargs)
+        self.kwargs = kwargs
+
+    def fit(self, X: np.ndarray, y: np.array = None, **kwargs):
+        k_nm = self.projector.fit_transform(X=X, y=y, **kwargs)
+        self.classifier.fit(k_nm, y)
+        return self
+
+    def predict(self, X):
+        projection = self.projector.transform(X=X)
+        return self.classifier.predict(projection)
 
 
 class FALKON(BaseEstimator):
