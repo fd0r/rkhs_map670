@@ -1,2 +1,10 @@
 
 .ipynb_checkpoints/
+
+*.pyc
+
+rkhs/__pycache__/
+
+data/
+
+.idea/
