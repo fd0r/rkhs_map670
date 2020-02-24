@@ -48,6 +48,82 @@ class PlainNystromRegressor(BaseEstimator):
         return projection @ self.coeffs
 
 
+# TODO: Implement GD and SGD learning
+
+class GDPlainNystromRegressor:
+    raise NotImplementedError
+
+
+class SGDPlainNystromRegressor:
+    raise NotImplementedError
+
+
+class FALKON(BaseEstimator):
+    def __init__(self, kernel: str = 'rbf', m: int = 100, lambda_reg: int =
+    0, n_iter: int = 100):
+        self.projector = PlainNystrom(kernel=kernel, m=m)
+        self.coeffs = None
+        self.lambda_reg = lambda_reg
+        self.n_iter = n_iter
+
+    def fit(self, X, y=None):
+        from scipy.optimize import minimize
+        n = len(X)
+        m = self.projector.m
+        epsilon = np.finfo(float).eps
+        k_nm = self.projector.fit_transform(X=X, y=y, **kwargs)
+        k_mm = self.projector.transform(X=self.projector.sample, y=y)
+        T = np.linalg.cholesky(k_mm + epsilon * m * np.identity(m))
+        A = np.linalg.cholesky((T @ T.T / m) + self.lambda_reg *
+                               np.identity(m))
+
+        def knm_times_vector(u, v):
+            w = np.zeros(m)
+            ms = np.ceil(np.linspace(0, n, np.ceil(n / m) + 1))
+            for i in range(1, np.ceil(n / m)):
+                kr = self.projector.transform(X[ms[i] + 1:ms[i + 1]])
+                w += kr.T @ (kr @ u + v[ms[i] + 1:ms[i + 1]])
+            return w
+
+        bhb = lambda u: np.linalg.solve(
+            A.T,
+            np.linalg.solve(
+                T.T,
+                knm_times_vector(
+                    np.linalg.solve(
+                        T,
+                        np.linalg.solve(A, u)),
+                    np.zeros(n)) / n)
+            + self.lambda_reg * np.linalg.solve(A, u)
+        )
+
+        r = np.linalg.solve(
+            A.T,
+            np.linalg.solve(
+                T.T,
+                knm_times_vector(
+                    np.zeros(m),
+                    y / n)
+            )
+        )
+        self.coeffs = np.linalg.solve(
+            T,
+            np.linalg.solve(
+                A,
+                minimize(
+                    bhb,
+                    r,
+                    method='Newton-CG',
+                    options={
+                        'xtol': 1e-8,
+                        'disp': True})
+            )
+        )
+        return self
+
+
+# TODO: Implement hyper-parameter search with incremental method
+
 class ALSNystrom:
     # TODO: Implement this using; https://github.com/LCSL/bless
     def __init__(self):
