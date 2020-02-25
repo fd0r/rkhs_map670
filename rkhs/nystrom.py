@@ -4,6 +4,7 @@ import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.linear_model import SGDRegressor, SGDClassifier
+from scipy.sparse.linalg import cg
 
 logger = logging.getLogger(__name__)
 
@@ -100,30 +101,29 @@ class SGDPlainNystromClassifier:
 
 
 class FALKON(BaseEstimator):
-    def __init__(self, kernel: str = 'rbf', m: int = 100, lambda_reg: int =
-    0, n_iter: int = 100):
+    def __init__(self, kernel: str = 'rbf', m: int = 100, lambda_reg: float =
+    1e-6, n_iter: int = 100):
         self.projector = PlainNystrom(kernel=kernel, m=m)
         self.coeffs = None
         self.lambda_reg = lambda_reg
         self.n_iter = n_iter
 
-    def fit(self, X, y=None):
-        from scipy.optimize import minimize
+    def fit(self, X, y=None, **kwargs):
+        from scipy.optimize import minimize, fmin_cg
         n = len(X)
         m = self.projector.m
         epsilon = np.finfo(float).eps
         k_nm = self.projector.fit_transform(X=X, y=y, **kwargs)
         k_mm = self.projector.transform(X=self.projector.sample, y=y)
-        T = np.linalg.cholesky(k_mm + epsilon * m * np.identity(m))
-        A = np.linalg.cholesky((T @ T.T / m) + self.lambda_reg *
-                               np.identity(m))
+        T = np.linalg.cholesky(k_mm + epsilon * m * np.eye(m))
+        A = np.linalg.cholesky(T @ T.T / m + self.lambda_reg * np.eye(m))
 
         def knm_times_vector(u, v):
             w = np.zeros(m)
-            ms = np.ceil(np.linspace(0, n, np.ceil(n / m) + 1))
-            for i in range(1, np.ceil(n / m)):
-                kr = self.projector.transform(X[ms[i] + 1:ms[i + 1]])
-                w += kr.T @ (kr @ u + v[ms[i] + 1:ms[i + 1]])
+            ms = np.ceil(np.linspace(0, n, np.ceil(n / m) + 1)).astype(int)
+            for i in range(int(np.ceil(n / m))):
+                kr = self.projector.transform(X[(ms[i] + 1):ms[i + 1]])
+                w += kr.T @ (kr @ u + v[(ms[i] + 1):ms[i + 1]])
             return w
 
         bhb = lambda u: np.linalg.solve(
@@ -147,20 +147,33 @@ class FALKON(BaseEstimator):
                     y / n)
             )
         )
+        def conjgrad(funA, r, tmax):
+            p = r
+            rsold = r.T @ r
+            beta = np.zeros(len(r))
+            for i in range(tmax):
+                Ap = funA(p)
+                a = rsold/(p.T @ Ap)
+                beta = beta + a * p
+                r = r - a * Ap
+                rsnew = r.T @ r
+                p = r + (rsnew/rsold)*p
+                rsold = rsnew
+            return beta
+                
+
         self.coeffs = np.linalg.solve(
             T,
             np.linalg.solve(
                 A,
-                minimize(
-                    bhb,
-                    r,
-                    method='Newton-CG',
-                    options={
-                        'xtol': 1e-8,
-                        'disp': True})
+                conjgrad(bhb, r, self.n_iter)
             )
         )
         return self
+    
+    def predict(self, X):
+        projection = self.projector.transform(X=X)
+        return projection @ self.coeffs
 
 
 # TODO: Implement hyper-parameter search with incremental method
