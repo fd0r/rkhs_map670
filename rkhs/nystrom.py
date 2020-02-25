@@ -3,11 +3,31 @@ import logging
 import scipy
 import numpy as np
 from sklearn.base import BaseEstimator
+from sklearn.linear_model import SGDRegressor, SGDClassifier
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.linear_model import SGDRegressor, SGDClassifier
 from scipy.sparse.linalg import cg
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
+
+
+class KKR(BaseEstimator):
+    def __init__(self, kernel: str = 'rbf', m: int = 100, lambda_reg: int = 0):
+        self.projector = PlainNystrom(kernel=kernel, m=m)
+        self.lambda_reg = lambda_reg
+        self.coeffs = None
+
+    def fit(self, X: np.ndarray, y: np.array = None, **kwargs):
+        n = len(X)
+        self.projector.m = n
+        k = self.projector.fit_transform(X=X, y=y, **kwargs)
+        self.coeffs = np.inv(k + self.lambda_reg * n * np.identity(n)) @ y
+        return self
+
+    def predict(self, X):
+        projection = self.projector.transform(X=X)
+        return projection @ self.coeffs
 
 
 class PlainNystrom:
@@ -36,11 +56,17 @@ class PlainNystromRegressor(BaseEstimator):
         self.lambda_reg = lambda_reg
         self.coeffs = None
 
-    def fit(self, X: np.ndarray, y: np.array = None, **kwargs):
+    def fit(self, X: np.ndarray, y: np.array = None, woodbury=False, **kwargs):
         k_nm = self.projector.fit_transform(X=X, y=y, **kwargs)
         k_mm = self.projector.transform(X=self.projector.sample, y=y)
         assert k_mm.shape[0] == k_mm.shape[1] == k_nm.shape[1]
         n = len(X)
+        if woodbury:
+            raise NotImplementedError
+            # self.coeffs = (1 / (self.lambda_reg * n)) * (
+            #             np.identity(n) - k_nm @ np.inv(
+            #         self.lambda_reg * n * k_mm + k_nm.T @ k_nm) @ k_nm.T) @ y
+            # return self
         pseudo_inv = np.linalg.pinv(
             (k_nm.T @ k_nm) + (self.lambda_reg * n * k_mm))
         self.coeffs = pseudo_inv @ k_nm.T @ y
@@ -103,14 +129,15 @@ class SGDPlainNystromClassifier:
 
 class FALKON(BaseEstimator):
     def __init__(self, kernel: str = 'rbf', m: int = 100, lambda_reg: float =
-    1e-6, n_iter: int = 100):
+    1e-6, max_iter: int = 100, beta_tol=1e-8, verbose=True):
         self.projector = PlainNystrom(kernel=kernel, m=m)
         self.coeffs = None
         self.lambda_reg = lambda_reg
-        self.n_iter = n_iter
+        self.max_iter = max_iter
+        self.beta_tol = beta_tol
+        self.verbose = verbose
 
     def fit(self, X, y=None, **kwargs):
-        from scipy.optimize import minimize, fmin_cg
         n = len(X)
         m = self.projector.m
         epsilon = np.finfo(float).eps
@@ -127,17 +154,18 @@ class FALKON(BaseEstimator):
                 w += kr.T @ (kr @ u + v[(ms[i] + 1):ms[i + 1]])
             return w
 
-        bhb = lambda u: np.linalg.solve(
-            A.T,
-            np.linalg.solve(
-                T.T,
-                knm_times_vector(
-                    np.linalg.solve(
-                        T,
-                        np.linalg.solve(A, u)),
-                    np.zeros(n)) / n)
-            + self.lambda_reg * np.linalg.solve(A, u)
-        )
+        def bhb(u):
+            return np.linalg.solve(
+                A.T,
+                np.linalg.solve(
+                    T.T,
+                    knm_times_vector(
+                        np.linalg.solve(
+                            T,
+                            np.linalg.solve(A, u)),
+                        np.zeros(n)) / n)
+                + self.lambda_reg * np.linalg.solve(A, u)
+            )
 
         r = np.linalg.solve(
             A.T,
@@ -148,31 +176,46 @@ class FALKON(BaseEstimator):
                     y / n)
             )
         )
-        def conjgrad(funA, r, tmax):
+
+        def conjgrad(funA, r):
             p = r
             rsold = r.T @ r
             beta = np.zeros(len(r))
-            for i in range(tmax):
+            iterator = tqdm(range(self.max_iter), disable=not self.verbose)
+            for i in iterator:
                 Ap = funA(p)
-                a = rsold/(p.T @ Ap)
-                beta = beta + a * p
+                a = rsold / (p.T @ Ap)
+                beta_old = beta.copy()
+                beta += a * p
                 r = r - a * Ap
                 rsnew = r.T @ r
-                p = r + (rsnew/rsold)*p
+                p = r + (rsnew / rsold) * p
+                imrpovement = np.sum((beta - beta_old) ** 2)
+                iterator.set_postfix(improvement=imrpovement)
+                if imrpovement < self.beta_tol:
+                    return beta
                 rsold = rsnew
+            logger.warning(
+                "Conjugate Gradient did not converge in {} "
+                "steps".format(self.max_iter))
             return beta
-                
 
         self.coeffs = np.linalg.solve(
             T,
             np.linalg.solve(
                 A,
-                conjgrad(bhb, r, self.n_iter)
+                conjgrad(bhb, r)
             )
         )
         return self
     
     def predict(self, X):
+        projection = self.projector.transform(X=X)
+        return projection @ self.coeffs
+
+    def predict(self, X):
+        if self.coeffs is None:
+            raise Exception("Regressor must be fitted")
         projection = self.projector.transform(X=X)
         return projection @ self.coeffs
 
