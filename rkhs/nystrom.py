@@ -11,8 +11,8 @@ from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
-
-class KKR(BaseEstimator):
+# Close form Kernel Ridge Regression
+class KRR(BaseEstimator):
     def __init__(self, kernel: str = 'rbf', m: int = 100, lambda_reg: int = 0):
         self.projector = PlainNystrom(kernel=kernel, m=m)
         self.lambda_reg = lambda_reg
@@ -28,6 +28,37 @@ class KKR(BaseEstimator):
     def predict(self, X):
         projection = self.projector.transform(X=X)
         return projection @ self.coeffs
+
+
+# Gradient Descent Kernel Ridge Regression
+class GDKRR(KRR):
+    def fit(self, X: np.ndarray, y: np.array = None, n_iter=10,
+            learning_rate=1e-1, **kwargs):
+        n = len(X)
+        self.projector.m = n
+        k = self.projector.fit_transform(X=X, y=y, **kwargs)
+        self.coeffs = np.random.random((k.shape[1], ))  # Init
+        for iter in range(n_iter):  # Add Tqdm option to check loss in verbose
+            self.coeffs += learning_rate * ((k @ self.coeffs - y) +
+                                            self.lambda_reg*n*self.coeffs)
+        return self
+
+
+class SGDKRR(KRR):
+    def fit(self, X: np.ndarray, y: np.array = None, n_iter=10,
+            learning_rate=1e-1, **kwargs):
+        raise NotImplementedError
+        n = len(X)
+        self.projector.m = n
+        k = self.projector.fit_transform(X=X, y=y, **kwargs)
+        self.coeffs = np.random.random((k.shape[1], ))  # Init
+        idxs = np.arange()
+        for epoch in range(n_iter):  # Add Tqdm option to check loss in verbose
+            sample_idx = None
+            for iter, sub_idxs in enumerate(batchs):
+                self.coeffs += learning_rate * ((k @ self.coeffs - y) +
+                                            self.lambda_reg*n*self.coeffs)
+        return self
 
 
 class PlainNystrom:
@@ -80,8 +111,24 @@ class PlainNystromRegressor(BaseEstimator):
 # TODO: Implement GD and SGD learning
 
 class GDPlainNystromRegressor:
-    def __init__(self):
-        raise NotImplementedError
+    def __init__(self, kernel: str = 'rbf', m: int = 100, lambda_reg: int = 0):
+        self.projector = PlainNystrom(kernel=kernel, m=m)
+        self.lambda_reg = lambda_reg
+        self.coeffs = None
+
+    def fit(self, X: np.ndarray, y: np.array = None, woodbury=False, **kwargs):
+        k_nm = self.projector.fit_transform(X=X, y=y, **kwargs)
+        k_mm = self.projector.transform(X=self.projector.sample, y=y)
+        assert k_mm.shape[0] == k_mm.shape[1] == k_nm.shape[1]
+        n = len(X)
+        pseudo_inv = np.linalg.pinv(
+            (k_nm.T @ k_nm) + (self.lambda_reg * n * k_mm))
+        self.coeffs = pseudo_inv @ k_nm.T @ y
+        return self
+
+    def predict(self, X):
+        projection = self.projector.transform(X=X)
+        return projection @ self.coeffs
 
 
 class GDPlainNystromClassifier:
