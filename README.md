@@ -3,7 +3,6 @@ RKHS project for the course "Generalization Properties" by Aymeric Dieuleveut
 
 _Authors: Corentin Ambroise, Luis Montero and Margaux Zaffran_
 
-**A small introduction ?**
 
 ## Data
 
@@ -28,3 +27,7 @@ This repository requires python, but also needs some libraries:
 - os
 
 If you need to install some of them, you can simply execute ```pip install -r requirements.txt``` on your terminal.
+
+All implemented algorithms can be found in rhks module.
+
+To reproduce the results you can run ```Large_Scale_Learning.ipynb```
